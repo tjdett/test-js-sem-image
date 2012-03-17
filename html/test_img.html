@@ -1,0 +1,68 @@
+<html>
+<head>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<script type="text/javascript" src="https://raw.github.com/carlo/jquery-base64/master/jquery.base64.js"></script>
+<script type="text/javascript" src="https://raw.github.com/documentcloud/underscore/master/underscore-min.js"></script>
+<script type="text/javascript" src="./common.js"></script>
+<script type="text/javascript">
+function getParts(data) {
+  if (!data.match(/^XL\0/)) return null;
+  var header = data.slice(0, 0x600);
+  return {
+    'header': header,
+    'headers': {
+      'width':  ((header.charCodeAt(0x203) << 8) + header.charCodeAt(0x202))/2,
+      'height': ((header.charCodeAt(0x205) << 8) + header.charCodeAt(0x204))*2
+    },
+    'image': data.slice(0x600)
+  };
+}
+
+$(function() {
+  getBinaryString('/base64/XLIMG.img', function(data) {
+    if (data == null) {
+      return;
+    }
+    var parts = getParts(data);
+    $('#header').text(_.reduce(parts.headers, function(str, v, k) {
+      return str+"\n"+k+"="+v;
+    }, ""));
+    
+    var canvas = document.getElementById("c");
+    canvas.height = parseInt(parts.headers.height);
+    canvas.width = parseInt(parts.headers.width);
+    var ctx = canvas.getContext("2d");
+    var canvasData = ctx.createImageData(canvas.width, canvas.height);
+    
+    for (var x = 0; x < canvasData.width; x++) {
+      for (var y = 0; y < canvasData.height; y++) {
+        var i = x + y * canvas.width;
+        var idx = i * 4;
+        canvasData.data[idx+0] = parts.image.charCodeAt(i);
+        canvasData.data[idx+1] = parts.image.charCodeAt(i);
+        canvasData.data[idx+2] = parts.image.charCodeAt(i);
+        canvasData.data[idx+3] = 255;
+      }
+    }
+    
+    ctx.putImageData(canvasData, 0, 0);
+    $('#ci').attr('src', canvas.toDataURL("image/png"));
+  });
+});
+</script>
+</head>
+<body>
+
+<canvas id="c" style="display: none">
+</canvas>
+
+<img id="ci" />
+
+<pre id="header">
+</pre>
+
+<pre id="raw">
+</pre>
+
+</body>
+</html>
